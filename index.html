@@ -27,13 +27,14 @@
 
     <h2>2. Character</h2>
     <div class="row">
-      <label>Race
-        <select id="race"></select>
+      <label>Race (locked)
+        <select id="race" disabled></select>
       </label>
       <label>Level
         <input type="number" id="level" min="1" max="120" value="120" />
       </label>
     </div>
+    <div class="note">All builds use Demon race for +5% HP per kill synergy.</div>
     <div id="raceDesc" class="note"></div>
 
     <h2>3. Equipment</h2>
@@ -64,19 +65,41 @@
     <div id="weaponInfo" class="note"></div>
 
     <h2>4. Sub-Stats (rolled affixes)</h2>
-    <div class="subs-note note">Type in the % values rolled on your gear. See the "Recommended Sub-Stats" section in the output for what to prioritize per build.</div>
-    <div class="grid2">
-      <label><span class="c-good">Weapon PhysPOW%</span> <input type="number" id="wPhys" value="0" step="0.1" /></label>
-      <label><span class="c-magic">Weapon MagicPOW%</span> <input type="number" id="wMag" value="0" step="0.1" /></label>
-      <label><span class="c-warn">Weapon CritRate%</span> <input type="number" id="wCR" value="0" step="0.1" /></label>
-      <label><span class="c-warn">Weapon CritDMG%</span> <input type="number" id="wCD" value="0" step="0.1" /></label>
-      <label><span class="c-gold">Weapon GuardPOW%</span> <input type="number" id="wGP" value="0" step="0.1" /></label>
-      <label>&nbsp;<span class="note">(leave blank if unused)</span></label>
-      <label><span class="c-good">Armor PhysRES%</span> <input type="number" id="aPR" value="0" step="0.1" /></label>
-      <label><span class="c-magic">Armor MagicRES%</span> <input type="number" id="aMR" value="0" step="0.1" /></label>
-      <label><span class="c-accent">Armor ArmorRATE%</span> <input type="number" id="aAR" value="0" step="0.1" /></label>
-      <label><span class="c-agi">Armor WalkSPD%</span> <input type="number" id="aWS" value="0" step="0.1" /></label>
-      <label><span class="c-gold">Armor GuardPOW%</span> <input type="number" id="aGP" value="0" step="0.1" /></label>
+    <div class="subs-note note">Click a button to open the editor. Only fill in the % values that are actually rolled on YOUR gear.</div>
+    <div class="subs-btn-row">
+      <button type="button" class="subs-open-btn" id="openWeaponSubs">
+        <span class="subs-btn-title c-good">Weapon Sub-Stats</span>
+        <span class="subs-btn-hint">Sword / Axe / Bow / Staff / etc.</span>
+      </button>
+      <button type="button" class="subs-open-btn" id="openArmorSubs">
+        <span class="subs-btn-title c-warn">Armor Sub-Stats</span>
+        <span class="subs-btn-hint">Chest / body armor</span>
+      </button>
+    </div>
+
+    <!-- Hidden host for the sub-stat inputs. They remain in the DOM so IDs
+         stay wired to the calc engine, but are only shown inside a modal. -->
+    <div class="subs-hidden-host">
+      <div id="weaponSubsEditor" class="subs-card">
+        <div class="subs-card-title c-good">Weapon Sub-Stats (Sword / Axe / Bow / Staff / etc.)</div>
+        <div class="grid2 subs-grid">
+          <label><span class="sub-name">PhysPOW %</span><span class="sub-hint">Boosts physical attack power</span><input type="number" id="wPhys" value="0" step="0.1" /></label>
+          <label><span class="sub-name">MagicPOW %</span><span class="sub-hint">Boosts magic attack power</span><input type="number" id="wMag" value="0" step="0.1" /></label>
+          <label><span class="sub-name">CritRate %</span><span class="sub-hint">Chance to land a critical hit</span><input type="number" id="wCR" value="0" step="0.1" /></label>
+          <label><span class="sub-name">CritDMG %</span><span class="sub-hint">Extra damage on crits</span><input type="number" id="wCD" value="0" step="0.1" /></label>
+          <label><span class="sub-name">GuardPOW %</span><span class="sub-hint">Blocking strength (mostly shields)</span><input type="number" id="wGP" value="0" step="0.1" /></label>
+        </div>
+      </div>
+      <div id="armorSubsEditor" class="subs-card">
+        <div class="subs-card-title c-warn">Armor Sub-Stats (chest / body armor)</div>
+        <div class="grid2 subs-grid">
+          <label><span class="sub-name">PhysRES %</span><span class="sub-hint">Reduces physical damage taken</span><input type="number" id="aPR" value="0" step="0.1" /></label>
+          <label><span class="sub-name">MagicRES %</span><span class="sub-hint">Reduces magic damage taken</span><input type="number" id="aMR" value="0" step="0.1" /></label>
+          <label><span class="sub-name">ArmorRATE %</span><span class="sub-hint">Overall damage reduction</span><input type="number" id="aAR" value="0" step="0.1" /></label>
+          <label><span class="sub-name">WalkSPD %</span><span class="sub-hint">Movement speed bonus</span><input type="number" id="aWS" value="0" step="0.1" /></label>
+          <label><span class="sub-name">GuardPOW %</span><span class="sub-hint">Blocking strength (rare on armor)</span><input type="number" id="aGP" value="0" step="0.1" /></label>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -91,27 +114,32 @@
       <button id="resetStats" class="btn ghost">Reset</button>
     </div>
 
-    <h2>6. Talents (6 slots, 1 race-locked)</h2>
+    <h2>6. Talents (5 free + 1 race-locked)</h2>
     <div id="talentSlots" class="slot-grid"></div>
 
     <h2>7. Skills (6 slots)</h2>
     <div id="skillSlots" class="slot-grid"></div>
   </section>
 
-  <!-- RIGHT: output -->
+  <!-- RIGHT: compact results dashboard -->
   <section class="panel">
-    <h2>8. Build Output</h2>
-    <div id="output"></div>
+    <h2>8. Build Results</h2>
+    <div id="compactStats" class="compact-stats"></div>
 
-    <h2>Boss Counter Recommendations</h2>
-    <label>Target Dungeon
-      <select id="dungeon"></select>
-    </label>
-    <div id="bossRec" class="note"></div>
+    <div id="dashboardButtons" class="dashboard-buttons">
+      <button class="dashboard-btn" data-modal="output">Full Build Output</button>
+      <button class="dashboard-btn" data-modal="skills">Skill Damage</button>
+      <button class="dashboard-btn" data-modal="gear">Recommended Gear</button>
+      <button class="dashboard-btn" data-modal="subs">Sub-Stat Guide</button>
+      <button class="dashboard-btn" data-modal="weaponRef">Weapon Reference</button>
+      <button class="dashboard-btn" data-modal="boss">Boss Counter Recs</button>
+      <button class="dashboard-btn" data-modal="talents">Active Talents</button>
+      <button class="dashboard-btn" data-modal="race">Race Passive</button>
+    </div>
   </section>
 </main>
 
-<footer class="foot">Data compiled from <a href="https://blue-heater-2.fandom.com/" target="_blank" rel="noreferrer">blue-heater-2.fandom.com</a>. &nbsp;|&nbsp; <span class="credit-foot">Made by Oush Xanax scripts</span></footer>
+<footer class="foot"><span class="credit-foot">Made by Oush Xanax scripts</span></footer>
 
 <script src="data.js"></script>
 <script src="app.js"></script>

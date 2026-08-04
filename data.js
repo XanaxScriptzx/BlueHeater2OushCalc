@@ -333,8 +333,8 @@ window.GAME_DATA = (function () {
       description: "Heals ally for 40% of your MaxMP - Valentine event." },
     { name: "Easter Surprise",  mp: 30,  cd: 10,  type: "Physical", req: {}, weapons: [], baseMultiplier: 3.0, limited: true,
       description: "Lobs an explosive egg - Easter event." },
-    { name: "Pumkin Bomb",      mp: 60,  cd: 20,  type: "Magic",    req: {}, weapons: [], baseMultiplier: 6.0, limited: true,
-      description: "6x MagicPOW blast + 0.5x DoT - Halloween event." },
+    { name: "Pumkin Bomb",      mp: 60,  cd: 20,  type: "Magic",    req: {}, weapons: [], baseMultiplier: 6.0, limited: true, hidden: true,
+      description: "6x MagicPOW blast + 0.5x DoT - Halloween event (LIMITED, disabled)." },
 
     // ---------- F1 ----------
     { name: "Power Strike",     mp: 15,  cd: 2,   type: "Physical", req: {},                    weapons: [], baseMultiplier: 2.0,

@@ -39,6 +39,7 @@
     skills: [null, null, null, null, null, null],
     subs: { wPhys: 0, wMag: 0, wCR: 0, wCD: 0, wGP: 0, aPR: 0, aMR: 0, aAR: 0, aWS: 0, aGP: 0 },
     dungeon: "",
+    presetSnapshot: null, // { critRate, critDmgBonus } cached after last applyPreset
   };
 
   // ---------------- Populate selects ----------------
@@ -62,15 +63,15 @@
     $("archetype").value = state.archetype;
 
     fill($("race"), D.races.map((r) => r.name));
+    state.race = "Demon";
     $("race").value = state.race;
+    $("race").setAttribute("disabled", "disabled");
 
     fill($("weaponCat"), Object.keys(D.weapons));
     $("weaponCat").value = state.weaponCat;
     refreshWeapons();
 
     fill($("armor"), D.armors.map((a) => ({ value: a.name, label: `${a.name}  [${a.rarity} L${a.level[0]}-${a.level[1]}]` })), "-- select armor --");
-
-    fill($("dungeon"), D.dungeons.map((d) => ({ value: d.name, label: `${d.name} (L${d.levelRange[0]}-${d.levelRange[1]})` })), "-- pick a dungeon --");
 
     fill($("shield"), flattenRarity(D.shields), "-- pick shield --");
   }
@@ -159,12 +160,11 @@
       const row = document.createElement("div");
       row.className = "stat-row stat-" + STAT_COLOR[s];
       row.innerHTML = `
-        <div style="display:flex;justify-content:space-between">
-          <div>
-            <div class="name"><span class="stat-tag ${STAT_COLOR[s]}">${s}</span> ${STAT_LABEL[s]}</div>
-            <div class="desc">${STAT_DESC[s]}</div>
-          </div>
+        <div class="stat-row-head">
+          <div class="name"><span class="stat-tag ${STAT_COLOR[s]}">${s}</span> ${STAT_LABEL[s]}</div>
+          <div class="stat-current ${STAT_COLOR[s]}" data-cur="${s}">${state.stats[s]}</div>
         </div>
+        <div class="desc">${STAT_DESC[s]}</div>
         <div class="controls">
           <button class="mini" data-s="${s}" data-d="-10">-10</button>
           <button class="mini" data-s="${s}" data-d="-1">-1</button>
@@ -196,6 +196,9 @@
     document.querySelectorAll("#statsGrid input[type=number]").forEach((inp) => {
       inp.value = state.stats[inp.dataset.s];
     });
+    document.querySelectorAll("#statsGrid .stat-current").forEach((el) => {
+      el.textContent = state.stats[el.dataset.cur] || 0;
+    });
   }
   function clampStats() {
     const cap = D.mechanics.maxStatPoints;
@@ -214,11 +217,31 @@
     const wrap = $("talentSlots");
     wrap.innerHTML = "";
     const allTalents = allTalentOptions();
-    for (let i = 0; i < 6; i++) {
+
+    // Slot 0: race-locked, read-only display (NOT a picker).
+    state.talents[0] = null;
+    const race = D.races.find((r) => r.name === state.race);
+    const raceSlot = document.createElement("div");
+    raceSlot.className = "slot race-locked";
+    if (race) {
+      raceSlot.innerHTML = `
+        <div class="race-passive-label">Race Passive (locked)</div>
+        <div class="race-passive-name">${race.ability}</div>
+        <div class="race-passive-effect">${race.effect}</div>`;
+    } else {
+      raceSlot.innerHTML = `
+        <div class="race-passive-label">Race Passive (locked)</div>
+        <div class="race-passive-name">-</div>
+        <div class="race-passive-effect">Select a race to see its passive.</div>`;
+    }
+    wrap.appendChild(raceSlot);
+
+    // Slots 1..5: free talent picks.
+    for (let i = 1; i < 6; i++) {
       const slot = document.createElement("div");
-      slot.className = "slot" + (i === 0 ? " locked" : "");
+      slot.className = "slot";
       slot.innerHTML = `
-        <div class="lbl">${i === 0 ? "Slot 1 (race-tied recommended)" : "Slot " + (i + 1)}</div>
+        <div class="lbl">Slot ${i + 1}</div>
         <select data-i="${i}"></select>`;
       wrap.appendChild(slot);
       const sel = slot.querySelector("select");
@@ -237,7 +260,7 @@
   function buildSkillSlots() {
     const wrap = $("skillSlots");
     wrap.innerHTML = "";
-    const opts = D.skills.map((s) => ({ value: s.name, label: skillLabel(s) }));
+    const opts = D.skills.filter((s) => !s.hidden).map((s) => ({ value: s.name, label: skillLabel(s) }));
     for (let i = 0; i < 6; i++) {
       const slot = document.createElement("div");
       slot.className = "slot";
@@ -278,9 +301,9 @@
   function applyPreset() {
     const a = D.archetypes[state.archetype];
     if (!a) return;
-    if (a.recommendedRaces && a.recommendedRaces.length) {
-      state.race = a.recommendedRaces[0]; $("race").value = state.race;
-    }
+    // All builds are locked to Demon race for +5% HP per kill synergy.
+    state.race = "Demon";
+    $("race").value = state.race;
     state.level = D.mechanics.maxLevel; $("level").value = state.level;
     if (a.recommendedWeapons && a.recommendedWeapons.length) {
       state.weaponCat = a.recommendedWeapons[0]; $("weaponCat").value = state.weaponCat;
@@ -307,8 +330,9 @@
     // stats plan
     STATS.forEach((s) => (state.stats[s] = a.statPlan[s] || 0));
     clampStats();
-    // talents
-    for (let i = 0; i < 6; i++) state.talents[i] = a.talentPicks[i] || null;
+    // talents: slot 0 is race-locked (read-only), so shift picks into slots 1..5.
+    state.talents[0] = null;
+    for (let i = 1; i < 6; i++) state.talents[i] = (a.talentPicks && a.talentPicks[i - 1]) || null;
     // preferred skills (fall back to auto-pick if list is short)
     if (a.recommendedSkills && a.recommendedSkills.length) {
       state.skills = [null, null, null, null, null, null];
@@ -322,6 +346,10 @@
     }
     // sync UI
     buildStatsGrid(); buildTalentSlots(); buildSkillSlots();
+    // Snapshot the freshly-applied preset's crit values so we can show deltas
+    // as the user tweaks stats/skills/talents afterwards.
+    const presetR = calcBuild();
+    state.presetSnapshot = { critRate: presetR.critRate, critDmgBonus: presetR.critDmgBonus };
     render();
   }
 
@@ -330,6 +358,7 @@
     const filter = (arche && arche.skillFilter) || "damage";
     const already = new Set(state.skills.filter(Boolean));
     const usable = D.skills
+      .filter((s) => !s.hidden)
       .filter((s) => meetsReq(s.req))
       .filter((s) => skillWeaponOK(s))
       .filter((s) => !preservePicked || !already.has(s.name));
@@ -479,11 +508,33 @@
     if (state.armor) {
       const armor = D.armors.find((a) => a.name === state.armor);
       if (armor) {
-        const base = D.armorRarityStats[armor.rarity] || { HP: 0, MP: 0 };
-        const midLevel = Math.floor((armor.level[0] + armor.level[1]) / 2);
-        const scale = 1 + midLevel / 100;
-        armorHP = Math.round(base.HP * scale);
-        armorMP = Math.round(base.MP * scale);
+        // Prefer verified per-armor stats block (from calibrated screenshots).
+        // Interpolate/extrapolate HP + MP between avg and max anchors when both exist,
+        // otherwise use the single anchor as-is (MP=0 if the anchor lists null / "N/A").
+        if (armor.stats && armor.stats.avg) {
+          const avg = armor.stats.avg;
+          const max = armor.stats.max;
+          const clampLv = Math.max(armor.level[0], Math.min(armor.level[1], state.level || avg.lv));
+          const hpAvg = avg.hp || 0;
+          const mpAvg = (avg.mp == null) ? 0 : avg.mp;
+          if (max && max.lv && max.lv !== avg.lv) {
+            const hpMax = max.hp || 0;
+            const mpMax = (max.mp == null) ? 0 : max.mp;
+            const t = (clampLv - avg.lv) / (max.lv - avg.lv);
+            armorHP = Math.round(hpAvg + (hpMax - hpAvg) * t);
+            armorMP = Math.round(mpAvg + (mpMax - mpAvg) * t);
+          } else {
+            armorHP = Math.round(hpAvg);
+            armorMP = Math.round(mpAvg);
+          }
+        } else {
+          // Fall back to rarity-tier defaults when we don't have calibrated numbers.
+          const base = D.armorRarityStats[armor.rarity] || { HP: 0, MP: 0 };
+          const midLevel = Math.floor((armor.level[0] + armor.level[1]) / 2);
+          const scale = 1 + midLevel / 100;
+          armorHP = Math.round(base.HP * scale);
+          armorMP = Math.round(base.MP * scale);
+        }
       }
     }
     physRes  += (state.subs.aPR || 0);
@@ -698,6 +749,7 @@
 
   // ---------------- Render ----------------
   function line(k, v, cls) { return `<div class="stat-line"><span class="k">${k}</span><span class="v ${cls || ''}">${v}</span></div>`; }
+  function cline(k, v, cls) { return `<div class="compact-stat-line"><span class="k">${k}</span><span class="v ${cls || ''}">${v}</span></div>`; }
 
   function render() {
     const spent = STATS.reduce((a, s) => a + (state.stats[s] || 0), 0);
@@ -719,49 +771,43 @@
 
     const r = calcBuild();
 
-    // ---------- weapon min-stat warning banner ----------
+    // Compact stats dashboard (always visible).
+    const compact = $("compactStats");
+    if (compact) {
+      const snap = state.presetSnapshot;
+      const crDelta = snap ? deltaPill(r.critRate, snap.critRate) : "";
+      const cdDelta = snap ? deltaPill(r.critDmgBonus, snap.critDmgBonus) : "";
+      compact.innerHTML =
+        cline("PhysPOW", r.physPow, "good") +
+        cline("MagicPOW", r.magicPow, "magic") +
+        cline("CritRate", r.critRate + "%" + crDelta, "warn") +
+        cline("CritDMG", "+" + r.critDmgBonus + "%" + cdDelta, "warn") +
+        cline("Avg-hit", r.avgHit, "good") +
+        cline("Total DPS", r.totalDPS, "good") +
+        cline("MaxHP", r.maxHP, "good") +
+        cline("MaxMP", r.maxMP, "magic") +
+        cline("GuardPOW", r.guardPow + "%", state.offhand === "shield" ? "good" : "") +
+        cline("WalkSPD", r.walkSpd, "");
+    }
+  }
+
+  // Small +/- delta indicator for showing current vs. preset snapshot.
+  function deltaPill(cur, base) {
+    const d = Math.round((cur - base) * 10) / 10;
+    if (d === 0) return "";
+    if (d > 0) return `<span class="delta up">+${d}%</span>`;
+    return `<span class="delta down">${d}%</span>`;
+  }
+
+  // ---------------- Builders (per-modal content) ----------------
+  function buildStatsSummaryHtml(r, arche) {
     const minBanner = r.underStatted
       ? `<div class="banner bad">
            WEAPON UNDER-STATTED: <b>${state.weaponRarity}</b> ${state.weaponCat} needs ${r.scaling} ${r.minReq}, you have ${r.curScalingStat}. Damage x${r.underStatPenalty.toFixed(2)}.
          </div>`
       : `<div class="banner good">Weapon min-stat OK: ${r.scaling} ${r.curScalingStat} / ${r.minReq}</div>`;
-
-    // ---------- skill table with lock indicators ----------
-    const skillRows = r.skillDamages.map((k) => {
-      const sk = D.skills.find((x) => x.name === k.name);
-      const req = Object.entries(sk.req || {}).map(([kk, vv]) => `${kk}${vv}`).join(",") || "-";
-      let pill;
-      if (k.ok) pill = '<span class="pill good">OK</span>';
-      else if (!k.weaponOK) pill = `<span class="pill bad">WPN LOCK: ${(k.allowedWeapons.join('/') || 'none')}</span>`;
-      else if (!k.dwOK) pill = '<span class="pill warn">NEEDS DUAL</span>';
-      else if (!k.shOK) pill = '<span class="pill warn">NO SHIELD</span>';
-      else pill = '<span class="pill brown">REQ MISS</span>';
-      return `<tr class="${k.ok ? '' : 'row-locked'}">
-        <td>${k.name} ${pill}</td>
-        <td>${k.type}</td>
-        <td>${k.mp}</td>
-        <td>${k.cd}s</td>
-        <td class="v good">${k.ok ? k.normal : '-'}</td>
-        <td class="v warn">${k.ok ? k.crit : '-'}</td>
-        <td class="v">${k.ok ? k.avg : '-'}</td>
-        <td class="v good">${k.ok ? k.dps : '-'}</td>
-        <td class="note">${req}</td>
-      </tr>`;
-    }).join("");
-
-    // ---------- sub-stat recommendation panel ----------
-    const subsHtml = renderSubsPanel(arche);
-
-    // ---------- gear recommendation panel ----------
-    const gearHtml = renderGearPanel(arche);
-
-    // ---------- weapon reference panel (skills + talents for current weapon category) ----------
-    const weaponRefHtml = renderWeaponRefPanel(state.weaponCat);
-
-    // ---------- colored stat allocation summary ----------
     const statChips = STATS.map((k) => `<span class="stat-chip ${STAT_COLOR[k]}"><b>${k}</b> ${state.stats[k]}</span>`).join(" ");
-
-    $("output").innerHTML = `
+    return `
       ${minBanner}
       <div class="stat-line"><span class="k">Archetype</span><span class="v c-accent">${arche ? arche.label : state.archetype}</span></div>
       <div class="stat-line"><span class="k">Race</span><span class="v">${state.race}</span></div>
@@ -772,8 +818,11 @@
       <div class="stat-line"><span class="k">Scaling</span><span class="v"><span class="stat-tag ${STAT_COLOR[r.scaling]||''}">${r.scaling}</span> ${r.useMagic ? "(Magic-primary)" : "(Phys-primary)"}</span></div>
       <div class="stat-line"><span class="k">Points</span><span class="v ${r.spent > r.cap ? 'bad' : (r.spent === r.cap ? 'good' : 'warn')}">${r.spent} / ${r.cap}</span></div>
       <div class="stat-chips">${statChips}</div>
-      <div class="note offhand-note">${r.offhandNote}</div>
+      <div class="note offhand-note">${r.offhandNote}</div>`;
+  }
 
+  function buildOffenseDefenseHtml(r) {
+    return `
       <h3>Offense</h3>
       ${line("PhysPOW", r.physPow, "good")}
       ${line("MagicPOW", r.magicPow, "magic")}
@@ -798,8 +847,32 @@
       ${line("MaxHP", r.maxHP + "  (armor +" + r.armorHP + ")", "good")}
       ${line("MaxMP", r.maxMP + "  (armor +" + r.armorMP + ")", "magic")}
       ${line("MaxSTM", r.maxSTM)}
-      ${line("WalkSPD", r.walkSpd)}
+      ${line("WalkSPD", r.walkSpd)}`;
+  }
 
+  function buildSkillTableHtml(r) {
+    const skillRows = r.skillDamages.map((k) => {
+      const sk = D.skills.find((x) => x.name === k.name);
+      const req = Object.entries(sk.req || {}).map(([kk, vv]) => `${kk}${vv}`).join(",") || "-";
+      let pill;
+      if (k.ok) pill = '<span class="pill good">OK</span>';
+      else if (!k.weaponOK) pill = `<span class="pill bad">WPN LOCK: ${(k.allowedWeapons.join('/') || 'none')}</span>`;
+      else if (!k.dwOK) pill = '<span class="pill warn">NEEDS DUAL</span>';
+      else if (!k.shOK) pill = '<span class="pill warn">NO SHIELD</span>';
+      else pill = '<span class="pill brown">REQ MISS</span>';
+      return `<tr class="${k.ok ? '' : 'row-locked'}">
+        <td>${k.name} ${pill}</td>
+        <td>${k.type}</td>
+        <td>${k.mp}</td>
+        <td>${k.cd}s</td>
+        <td class="v good">${k.ok ? k.normal : '-'}</td>
+        <td class="v warn">${k.ok ? k.crit : '-'}</td>
+        <td class="v">${k.ok ? k.avg : '-'}</td>
+        <td class="v good">${k.ok ? k.dps : '-'}</td>
+        <td class="note">${req}</td>
+      </tr>`;
+    }).join("");
+    return `
       <h3>Skill Damage Breakdown</h3>
       <table class="dmg-table">
         <thead><tr>
@@ -807,21 +880,65 @@
           <th>Normal</th><th>Crit</th><th>Avg</th><th>DPS</th><th>Req</th>
         </tr></thead>
         <tbody>${skillRows || '<tr><td colspan="9" class="note">No skills selected</td></tr>'}</tbody>
-      </table>
-
-      ${gearHtml}
-      ${subsHtml}
-      ${weaponRefHtml}
-
-      <h3>Race Passive</h3>
-      <ul>${r.raceNotes.map((x) => `<li>${x}</li>`).join("")}</ul>
-
-      <h3>Active Talents</h3>
-      <ul>${r.talentNotes.length ? r.talentNotes.map((x) => `<li>${x}</li>`).join("") : "<li>None selected</li>"}</ul>
-    `;
-
-    renderBoss();
+      </table>`;
   }
+
+  function buildGearHtml(arche) { return renderGearPanel(arche); }
+  function buildSubsHtml(arche) { return renderSubsPanel(arche); }
+  function buildWeaponRefHtml(cat) { return renderWeaponRefPanel(cat); }
+
+  function buildRacePassiveHtml(r) {
+    return `
+      <h3>Race Passive</h3>
+      <ul>${r.raceNotes.map((x) => `<li>${x}</li>`).join("")}</ul>`;
+  }
+  function buildTalentsHtml(r) {
+    return `
+      <h3>Active Talents</h3>
+      <ul>${r.talentNotes.length ? r.talentNotes.map((x) => `<li>${x}</li>`).join("") : "<li>None selected</li>"}</ul>`;
+  }
+
+  function buildOutputHtml(r, arche) {
+    return buildStatsSummaryHtml(r, arche)
+      + buildOffenseDefenseHtml(r)
+      + buildSkillTableHtml(r)
+      + buildGearHtml(arche)
+      + buildSubsHtml(arche)
+      + buildWeaponRefHtml(state.weaponCat)
+      + buildRacePassiveHtml(r)
+      + buildTalentsHtml(r);
+  }
+
+  function buildBossHtml() {
+    const opts = D.dungeons.map((d) => `<option value="${d.name}" ${d.name === state.dungeon ? 'selected' : ''}>${d.name} (L${d.levelRange[0]}-${d.levelRange[1]})</option>`).join("");
+    const name = state.dungeon;
+    let body = '<div class="note">Pick a dungeon to see counter-build tips.</div>';
+    if (name) {
+      const d = D.dungeons.find((x) => x.name === name);
+      if (d) {
+        const rec = counterBuild(d);
+        body = `
+          <b class="c-accent">${d.name}</b> - ${d.location} (L${d.levelRange[0]}-${d.levelRange[1]})<br/>
+          <b>Boss:</b> <span class="c-warn">${d.boss}</span><br/>
+          ${d.monsters.length ? "<b>Enemies:</b> " + d.monsters.join(", ") + "<br/>" : ""}
+          ${d.drops.length ? "<b>Drops:</b> " + d.drops.map((x) => `<span class="pill gold">${x}</span>`).join(" ") + "<br/>" : ""}
+          <br/>
+          <b>Recommended Approach:</b><br/>
+          ${rec.strategy}<br/>
+          <b>Best Archetypes:</b> ${rec.archetypes.map((a) => `<span class="pill blue">${a}</span>`).join(" ")}<br/>
+          <b>Key Talents:</b> ${rec.talents.map((t) => `<span class="pill pink">${t}</span>`).join(" ")}`;
+      }
+    }
+    return `
+      <label>Target Dungeon
+        <select id="modalDungeon">
+          <option value="">-- pick a dungeon --</option>
+          ${opts}
+        </select>
+      </label>
+      <div id="modalBossRec">${body}</div>`;
+  }
+
 
   function renderArchetypeDesc(a) {
     return `<div>${a.description}</div>
@@ -933,11 +1050,15 @@
 
 
   function renderBoss() {
-    const name = $("dungeon").value;
-    const el = $("bossRec");
-    if (!name) { el.textContent = "Pick a dungeon to see counter-build tips."; return; }
+    // Boss rec now lives in the Boss Counter modal; this function refreshes it if open.
+    const el = document.getElementById("modalBossRec");
+    const sel = document.getElementById("modalDungeon");
+    if (!el) return;
+    const name = (sel && sel.value) || state.dungeon || "";
+    state.dungeon = name;
+    if (!name) { el.innerHTML = '<div class="note">Pick a dungeon to see counter-build tips.</div>'; return; }
     const d = D.dungeons.find((x) => x.name === name);
-    if (!d) { el.textContent = ""; return; }
+    if (!d) { el.innerHTML = ""; return; }
     const rec = counterBuild(d);
     el.innerHTML = `
       <b class="c-accent">${d.name}</b> - ${d.location} (L${d.levelRange[0]}-${d.levelRange[1]})<br/>
@@ -995,7 +1116,12 @@
   function wire() {
     $("archetype").addEventListener("change", () => { state.archetype = $("archetype").value; render(); });
     $("applyPreset").addEventListener("click", applyPreset);
-    $("race").addEventListener("change", () => { state.race = $("race").value; render(); });
+    $("race").addEventListener("change", () => {
+      state.race = $("race").value;
+      // Refresh slot 0 with the new race passive.
+      buildTalentSlots();
+      render();
+    });
     $("level").addEventListener("input", () => { state.level = Math.max(1, Math.min(D.mechanics.maxLevel, parseInt($("level").value || "1", 10))); $("level").value = state.level; render(); });
 
     $("weaponCat").addEventListener("change", () => {
@@ -1027,7 +1153,119 @@
 
     $("autoAllocate").addEventListener("click", autoAllocate);
     $("resetStats").addEventListener("click", resetStats);
-    $("dungeon").addEventListener("change", renderBoss);
+
+    // Dashboard modal buttons.
+    document.querySelectorAll(".dashboard-btn").forEach((btn) => {
+      btn.addEventListener("click", () => openModalFor(btn.dataset.modal));
+    });
+
+    // Sub-stat editor buttons (open the hidden editor blocks inside a modal).
+    const openSubsEditor = (which) => {
+      const src = document.getElementById(which === "weapon" ? "weaponSubsEditor" : "armorSubsEditor");
+      if (!src) return;
+      const title = which === "weapon" ? "Weapon Sub-Stats" : "Armor Sub-Stats";
+      openModalWithNode(title, src);
+    };
+    const wBtn = $("openWeaponSubs"); if (wBtn) wBtn.addEventListener("click", () => openSubsEditor("weapon"));
+    const aBtn = $("openArmorSubs");  if (aBtn) aBtn.addEventListener("click", () => openSubsEditor("armor"));
+
+    // Global Escape-to-close.
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") closeModal();
+    });
+  }
+
+  // ---------------- Modal system ----------------
+  let currentModal = null; // { key, title }
+
+  function ensureModalRoot() {
+    let root = document.getElementById("modalRoot");
+    if (root) return root;
+    root = document.createElement("div");
+    root.id = "modalRoot";
+    root.className = "modal-backdrop";
+    root.innerHTML = `
+      <div class="modal" role="dialog" aria-modal="true">
+        <div class="modal-header">
+          <h3 class="modal-title"></h3>
+          <button type="button" class="modal-close" aria-label="Close">X</button>
+        </div>
+        <div class="modal-body"></div>
+      </div>`;
+    document.body.appendChild(root);
+    root.addEventListener("click", (e) => {
+      if (e.target === root) closeModal();
+    });
+    root.querySelector(".modal-close").addEventListener("click", closeModal);
+    return root;
+  }
+
+  function openModal(title, htmlContent) {
+    const root = ensureModalRoot();
+    root.querySelector(".modal-title").textContent = title;
+    root.querySelector(".modal-body").innerHTML = htmlContent;
+    root.classList.add("open");
+    // Reset body scroll to top.
+    const body = root.querySelector(".modal-body");
+    if (body) body.scrollTop = 0;
+  }
+
+  // Same as openModal but takes a live DOM node (keeps event bindings +
+  // preserves the actual input elements so their IDs stay wired to calc).
+  // We move the node into the modal and move it back on close.
+  let _subsNodeHome = null;
+  let _subsNode = null;
+  function openModalWithNode(title, node) {
+    const root = ensureModalRoot();
+    root.querySelector(".modal-title").textContent = title;
+    const body = root.querySelector(".modal-body");
+    body.innerHTML = "";
+    _subsNodeHome = node.parentNode;
+    _subsNode = node;
+    body.appendChild(node);
+    root.classList.add("open");
+    body.scrollTop = 0;
+  }
+
+  function closeModal() {
+    const root = document.getElementById("modalRoot");
+    if (root) root.classList.remove("open");
+    // If a live node was hosted, move it back to its original parent.
+    if (_subsNode && _subsNodeHome) {
+      _subsNodeHome.appendChild(_subsNode);
+      _subsNode = null;
+      _subsNodeHome = null;
+    }
+    currentModal = null;
+  }
+
+  // Modal-key → { title, build() }
+  function modalBuild(key) {
+    const r = calcBuild();
+    const arche = D.archetypes[state.archetype];
+    switch (key) {
+      case "output":    return { title: "Full Build Output", html: buildOutputHtml(r, arche) };
+      case "skills":    return { title: "Skill Damage",      html: buildSkillTableHtml(r) };
+      case "gear":      return { title: "Recommended Gear",  html: buildGearHtml(arche) || '<div class="note">No archetype selected.</div>' };
+      case "subs":      return { title: "Sub-Stat Guide",    html: buildSubsHtml(arche) || '<div class="note">No archetype selected.</div>' };
+      case "weaponRef": return { title: "Weapon Reference",  html: buildWeaponRefHtml(state.weaponCat) };
+      case "boss":      return { title: "Boss Counter Recommendations", html: buildBossHtml() };
+      case "talents":   return { title: "Active Talents",    html: buildTalentsHtml(r) };
+      case "race":      return { title: "Race Passive",      html: buildRacePassiveHtml(r) };
+    }
+    return null;
+  }
+
+  function openModalFor(key) {
+    const built = modalBuild(key);
+    if (!built) return;
+    currentModal = { key };
+    openModal(built.title, built.html);
+    // Wire up any dynamic controls inside a modal.
+    if (key === "boss") {
+      const sel = document.getElementById("modalDungeon");
+      if (sel) sel.addEventListener("change", () => { state.dungeon = sel.value; renderBoss(); });
+    }
   }
 
   // ---------------- Boot ----------------
