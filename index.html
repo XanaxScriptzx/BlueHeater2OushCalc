@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Blue Heater 2 - Build Calculator</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<header class="topbar">
+  <h1><span class="brand-glow">Blue Heater 2</span> <span class="brand-sub">Build Calculator</span></h1>
+  <div class="subtitle">Community build planner - stats, skills, talents, gear, sub-stats & boss-counter picks.</div>
+  <div class="credit">Made by <span class="credit-name">Oush Xanax scripts</span></div>
+</header>
+
+<main class="layout">
+  <!-- LEFT: preset + core selection -->
+  <section class="panel">
+    <h2>1. Archetype Preset</h2>
+    <div class="row">
+      <label>Preset
+        <select id="archetype"></select>
+      </label>
+      <button id="applyPreset" class="btn primary">Apply Preset</button>
+    </div>
+    <div id="archetypeDesc" class="note"></div>
+
+    <h2>2. Character</h2>
+    <div class="row">
+      <label>Race
+        <select id="race"></select>
+      </label>
+      <label>Level
+        <input type="number" id="level" min="1" max="120" value="120" />
+      </label>
+    </div>
+    <div id="raceDesc" class="note"></div>
+
+    <h2>3. Equipment</h2>
+    <div class="grid2">
+      <label>Weapon Category
+        <select id="weaponCat"></select>
+      </label>
+      <label>Weapon Rarity
+        <select id="weaponRarity"></select>
+      </label>
+      <label>Weapon
+        <select id="weapon"></select>
+      </label>
+      <label>Off-hand
+        <select id="offhand">
+          <option value="none">None (2H / free)</option>
+          <option value="dualwield">Dual Wield (2nd weapon)</option>
+          <option value="shield">Shield</option>
+        </select>
+      </label>
+      <label>Shield
+        <select id="shield" disabled></select>
+      </label>
+      <label>Armor
+        <select id="armor"></select>
+      </label>
+    </div>
+    <div id="weaponInfo" class="note"></div>
+
+    <h2>4. Sub-Stats (rolled affixes)</h2>
+    <div class="subs-note note">Type in the % values rolled on your gear. See the "Recommended Sub-Stats" section in the output for what to prioritize per build.</div>
+    <div class="grid2">
+      <label><span class="c-good">Weapon PhysPOW%</span> <input type="number" id="wPhys" value="0" step="0.1" /></label>
+      <label><span class="c-magic">Weapon MagicPOW%</span> <input type="number" id="wMag" value="0" step="0.1" /></label>
+      <label><span class="c-warn">Weapon CritRate%</span> <input type="number" id="wCR" value="0" step="0.1" /></label>
+      <label><span class="c-warn">Weapon CritDMG%</span> <input type="number" id="wCD" value="0" step="0.1" /></label>
+      <label><span class="c-gold">Weapon GuardPOW%</span> <input type="number" id="wGP" value="0" step="0.1" /></label>
+      <label>&nbsp;<span class="note">(leave blank if unused)</span></label>
+      <label><span class="c-good">Armor PhysRES%</span> <input type="number" id="aPR" value="0" step="0.1" /></label>
+      <label><span class="c-magic">Armor MagicRES%</span> <input type="number" id="aMR" value="0" step="0.1" /></label>
+      <label><span class="c-accent">Armor ArmorRATE%</span> <input type="number" id="aAR" value="0" step="0.1" /></label>
+      <label><span class="c-agi">Armor WalkSPD%</span> <input type="number" id="aWS" value="0" step="0.1" /></label>
+      <label><span class="c-gold">Armor GuardPOW%</span> <input type="number" id="aGP" value="0" step="0.1" /></label>
+    </div>
+  </section>
+
+  <!-- CENTER: stats + talents -->
+  <section class="panel">
+    <h2>5. Stat Allocation
+      <span id="ptsRemain" class="badge"></span>
+    </h2>
+    <div class="stats-grid" id="statsGrid"></div>
+    <div class="row">
+      <button id="autoAllocate" class="btn">Auto-Allocate for Preset</button>
+      <button id="resetStats" class="btn ghost">Reset</button>
+    </div>
+
+    <h2>6. Talents (6 slots, 1 race-locked)</h2>
+    <div id="talentSlots" class="slot-grid"></div>
+
+    <h2>7. Skills (6 slots)</h2>
+    <div id="skillSlots" class="slot-grid"></div>
+  </section>
+
+  <!-- RIGHT: output -->
+  <section class="panel">
+    <h2>8. Build Output</h2>
+    <div id="output"></div>
+
+    <h2>Boss Counter Recommendations</h2>
+    <label>Target Dungeon
+      <select id="dungeon"></select>
+    </label>
+    <div id="bossRec" class="note"></div>
+  </section>
+</main>
+
+<footer class="foot">Data compiled from <a href="https://blue-heater-2.fandom.com/" target="_blank" rel="noreferrer">blue-heater-2.fandom.com</a>. &nbsp;|&nbsp; <span class="credit-foot">Made by Oush Xanax scripts</span></footer>
+
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
