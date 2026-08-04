@@ -502,6 +502,7 @@
     let hpPctMult = 1;
     let atkSpdMult = 1;
     let dmgMult = 1;
+    let bonusAgi = 0; // AGI granted by talents (on top of base s.AGI)
     state.talents.forEach((tname) => {
       if (!tname) return;
       const t = findTalent(tname);
@@ -510,13 +511,15 @@
         ? '<span class="pill good">ALWAYS-ON</span>'
         : `<span class="pill warn">CONDITIONAL${t.tag ? ' (' + t.tag + ')' : ''}</span>`;
       talentNotes.push(`${badge} <b class="c-accent">${t.name}</b>: ${t.effect}`);
+      // Swift Strike is handled after the loop using final AGI.
+      if (t.agiScaling) return;
       applyTalent(t, {
         addStr: (v) => { if (scaling === "STR") physPow += v * 2; },
         addDex: (v) => { if (scaling === "DEX") physPow += v * 2; },
         addInt: (v) => { magicPow += v * 2; },
         addVit: (v) => { baseHP += v * 10; },
         addFoc: (v) => { baseMP += v * 3; },
-        addAgi: (v) => { maxSTM += v * 2; walkSpd += v * 0.1; },
+        addAgi: (v) => { maxSTM += v * 2; walkSpd += v * 0.1; bonusAgi += v; },
         addCritRate: (v) => (critRate += v),
         addCritDmg: (v) => (critDmgBonus += v),
         addGuardPow: (v) => (guardPow += v),
@@ -530,6 +533,14 @@
         addDmgPct: (v) => (dmgMult *= 1 + v / 100),
       });
     });
+
+    // Swift Strike: +0.2% CritRate & +0.75% CritDMG per AGI (cap 80 AGI = +16% CR / +60% CD).
+    // Uses FINAL AGI (base + talent bonuses) capped at 80.
+    if (state.talents.some((tn) => tn === "Swift Strike")) {
+      const finalAgi = Math.min(80, (s.AGI || 0) + bonusAgi);
+      critRate    += finalAgi * 0.2;
+      critDmgBonus += finalAgi * 0.75;
+    }
 
     // ---------- OFF-HAND ----------
     let offhandNote = "";
