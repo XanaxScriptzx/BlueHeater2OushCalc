@@ -1112,10 +1112,44 @@
     };
   }
 
+  // ---------------- Meta DPS Presets (one-click highest-DPS per weapon) ----------------
+  // Best DPS style for each weapon type - almost always GlassCannon.
+  const META_DPS_PRESETS = [
+    { key: "Sword_GlassCannon",       label: "Sword",      short: "Dual Sword Nuker" },
+    { key: "Greatsword_GlassCannon",  label: "Greatsword", short: "2H GS Nuker" },
+    { key: "Axe_GlassCannon",         label: "Axe",        short: "2H Axe Crit-Crusher" },
+    { key: "Spear_GlassCannon",       label: "Spear",      short: "Sunfire Skewer Burst" },
+    { key: "Scythe_GlassCannon",      label: "Scythe",     short: "Deathscythe Nuker" },
+    { key: "Dagger_GlassCannon",      label: "Dagger",     short: "Dual Dagger Barrage" },
+    { key: "Rapier_GlassCannon",      label: "Rapier",     short: "Dual Rapier Burst" },
+    { key: "Staff_GlassCannon",       label: "Staff",      short: "Volt Wraith Mage" },
+  ];
+  function buildMetaDpsList() {
+    const host = $("metaDpsList");
+    if (!host) return;
+    host.innerHTML = "";
+    META_DPS_PRESETS.forEach(({ key, label, short }) => {
+      if (!D.archetypes[key]) return;
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "meta-dps-btn";
+      btn.innerHTML =
+        `<span class="meta-dps-label">${label}</span>` +
+        `<span class="meta-dps-hint">${short}</span>`;
+      btn.addEventListener("click", () => {
+        state.archetype = key;
+        $("archetype").value = key;
+        applyPreset();
+      });
+      host.appendChild(btn);
+    });
+  }
+
   // ---------------- Event wiring ----------------
   function wire() {
     $("archetype").addEventListener("change", () => { state.archetype = $("archetype").value; render(); });
     $("applyPreset").addEventListener("click", applyPreset);
+    buildMetaDpsList();
     $("race").addEventListener("change", () => {
       state.race = $("race").value;
       // Refresh slot 0 with the new race passive.
